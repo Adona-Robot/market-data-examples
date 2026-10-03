@@ -1,5 +1,5 @@
-// Node 22+ or a browser: live quotes and closed bars on one WebSocket.
-// On your server: ADONA_API_KEY=... node stream.mjs  (in a browser, take the token from your server)
+// Node 22+: live quotes and closed bars on one WebSocket. ADONA_API_KEY=... node stream.mjs
+// In a browser the WebSocket part is the same; the token comes from your server, never the key.
 const API = "https://api.adona-robot.com";
 const STREAM = "wss://api.adona-robot.com/v1/stream";
 
