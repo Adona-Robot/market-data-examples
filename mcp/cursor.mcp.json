@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "adona-robot": {
+      "url": "https://api.adona-robot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:ADONA_API_KEY}"
+      }
+    }
+  }
+}

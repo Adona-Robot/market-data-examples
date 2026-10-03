@@ -1,0 +1,26 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.adona-robot/market-data",
+  "title": "Adona Robot market data",
+  "description": "FX and metals market data: plans, 51 symbols, price quotes, and candles with an API key.",
+  "version": "1.1.0",
+  "websiteUrl": "https://adona-robot.com/en",
+  "repository": {
+    "url": "https://github.com/Adona-Robot/market-data-examples",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.adona-robot.com/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer followed by your Adona Robot API key. Only get_candles needs it, billed like GET /v1/candles.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

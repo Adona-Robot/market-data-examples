@@ -1,0 +1,6 @@
+# What the examples write when they run.
+.adona-store/
+*.csv
+.mcp.json
+.cursor/
+__pycache__/

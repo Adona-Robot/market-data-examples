@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# Runs every example once against production and prints OK or KO per example.
+#
+#   export ADONA_API_KEY=...      # a live key; it is never printed
+#   ./check/run.sh                # from the repository root
+#
+# Needs bash and curl. Python 3.9+ with `websockets` and Node 22+ are used when
+# present; otherwise, if Docker is available, those examples run in a throwaway
+# container (python:3.12-slim, node:22-alpine) that is removed afterwards.
+#
+# Cost on the account: about ten slices of 1000 bars, a handful of tokens and two
+# stream connections of 20 seconds each. Every example's output goes to a
+# temporary directory, filtered so the key can never appear, and only the verdict
+# is printed. KEEP=1 keeps that directory and prints its path.
+set -uo pipefail
+
+: "${ADONA_API_KEY:?set ADONA_API_KEY to a live API key}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+WORK="$(mktemp -d)"
+trap '[ "${KEEP:-0}" = 1 ] && echo "outputs kept in $WORK" || rm -rf "$WORK"' EXIT
+cp -r "$ROOT/curl" "$ROOT/python" "$ROOT/javascript" "$WORK/"
+cd "$WORK" || exit 1
+
+STREAM_SECONDS=20
+YESTERDAY="$(date -u -d 'yesterday' +%Y-%m-%d 2>/dev/null || date -u -v-1d +%Y-%m-%d)"
+FAILED=0
+
+# Never let the key reach a file or the screen, whatever an example prints.
+redact() { sed "s|${ADONA_API_KEY//|/\\|}|<redacted>|g"; }
+
+# --- the runners: local when possible, a throwaway container otherwise -------------
+if command -v python3 >/dev/null && python3 -c 'import sys, websockets; sys.exit(sys.version_info < (3, 9))' 2>/dev/null; then
+  PY=(python3)
+elif command -v docker >/dev/null; then
+  PY=(docker run --rm -i --user "$(id -u):$(id -g)" -e HOME=/tmp -e ADONA_API_KEY -v "$WORK:/w" -w /w python:3.12-slim
+      sh -c 'pip install -q --user -r python/requirements.txt >/dev/null 2>&1 && python "$@"' python)
+else
+  PY=()
+fi
+if command -v node >/dev/null && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 22 ]; then
+  NODE=(node)
+elif command -v docker >/dev/null; then
+  NODE=(docker run --rm -i --user "$(id -u):$(id -g)" -e ADONA_API_KEY -e STOP_AFTER -v "$WORK:/w" -w /w node:22-alpine node)
+else
+  NODE=()
+fi
+
+# check NAME PATTERN COMMAND...: OK when the command exits 0 and its output matches.
+check() {
+  local name="$1" pattern="$2"
+  shift 2
+  local out="$WORK/${name//\//_}.out"
+  if [ "$1" = "--skip" ]; then
+    printf 'KO    %-34s %s\n' "$name" "$2"
+    FAILED=1
+    return
+  fi
+  "$@" 2>&1 | redact >"$out"
+  local status=${PIPESTATUS[0]}
+  if [ "$status" -eq 0 ] && grep -qE "$pattern" "$out"; then
+    printf 'OK    %s\n' "$name"
+  else
+    printf 'KO    %-34s exit %s: %s\n' "$name" "$status" "$(tail -c 300 "$out" | tr '\n' ' ')"
+    FAILED=1
+  fi
+}
+
+# refused NAME COMMAND...: OK when a wrong key is refused with INVALID_CUSTOMER_KEY.
+refused() {
+  local name="$1"
+  shift
+  local out="$WORK/refused_${name//\//_}.out"
+  ADONA_API_KEY="not-a-key" "$@" >"$out" 2>&1
+  if grep -q "INVALID_CUSTOMER_KEY" "$out"; then
+    printf 'OK    %s refuses a wrong key\n' "$name"
+  else
+    printf 'KO    %-34s a wrong key was not refused as INVALID_CUSTOMER_KEY\n' "$name"
+    FAILED=1
+  fi
+}
+
+mcp_candles() {
+  curl -s https://api.adona-robot.com/mcp \
+    -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+    -H "Authorization: Bearer $ADONA_API_KEY" \
+    -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_candles","arguments":{"symbol":"EURUSD","timeframe":"M1","limit":5}}}'
+}
+
+skip_py=(--skip "no Python 3.9+ with websockets, and no Docker")
+skip_node=(--skip "no Node 22+, and no Docker")
+py() { if [ ${#PY[@]} -gt 0 ]; then "${PY[@]}" "$@"; else return 127; fi; }
+nd() { if [ ${#NODE[@]} -gt 0 ]; then "${NODE[@]}" "$@"; else return 127; fi; }
+
+echo "adona-robot examples, against production, $(date -u +%Y-%m-%dT%H:%MZ)"
+
+# Keyless.
+check "curl/mcp.sh" '"total_chf_per_month_excluding_vat"' bash curl/mcp.sh
+
+# With the key.
+check "curl/history.sh" '"candles":\[\{"time"' bash curl/history.sh EURUSD S1 1000
+check "curl/stream-ticket.sh" '"ticket":"' bash curl/stream-ticket.sh
+check "mcp get_candles" '"isError":false' mcp_candles
+if [ ${#PY[@]} -gt 0 ]; then
+  check "python/history.py" '^[1-9][0-9]* bars written' py python/history.py EURUSD M1 "$YESTERDAY"
+  check "python/stream.py" 'candle.snapshot candle:EURUSD:M1 [1-9]' py python/stream.py --seconds "$STREAM_SECONDS"
+else
+  check "python/history.py" '' "${skip_py[@]}"
+  check "python/stream.py" '' "${skip_py[@]}"
+fi
+if [ ${#NODE[@]} -gt 0 ]; then
+  check "javascript/history.mjs" '^[1-9][0-9]* bars, ' nd javascript/history.mjs EURUSD M1 2000
+  check "javascript/stream.mjs" 'candle.snapshot candle:EURUSD:M1 [1-9]' env STOP_AFTER="$STREAM_SECONDS" "${NODE[@]}" javascript/stream.mjs
+else
+  check "javascript/history.mjs" '' "${skip_node[@]}"
+  check "javascript/stream.mjs" '' "${skip_node[@]}"
+fi
+
+# A wrong key is an answer, not a crash.
+refused "curl/history.sh" bash curl/history.sh
+[ ${#PY[@]} -gt 0 ] && refused "python/stream.py" py python/stream.py --seconds 1
+[ ${#NODE[@]} -gt 0 ] && refused "javascript/history.mjs" nd javascript/history.mjs
+
+if [ "$FAILED" -eq 0 ]; then echo "ALL OK"; else echo "SOME KO"; fi
+exit "$FAILED"
