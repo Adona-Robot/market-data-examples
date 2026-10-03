@@ -37,7 +37,7 @@ if command -v python3 >/dev/null && python3 -c 'import sys, requests, websockets
   PY=(python3)
   export PYTHONUNBUFFERED=1  # a stream stopped by `timeout` must have printed what it got
 elif command -v docker >/dev/null && docker info >/dev/null 2>&1; then
-  PY=(docker run --rm -i --user "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONUNBUFFERED=1 -e T -e ADONA_API_KEY
+  PY=(docker run --rm -i --init --user "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONUNBUFFERED=1 -e T -e ADONA_API_KEY
       -v "$WORK:/w" -w /w python:3.12-slim
       sh -c 'pip install -q --user -r python/requirements.txt >/dev/null && exec ${T:+timeout $T} python "$@"' python)
 else
@@ -46,7 +46,7 @@ fi
 if command -v node >/dev/null && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 22 ]; then
   NODE=(node)
 elif command -v docker >/dev/null && docker info >/dev/null 2>&1; then
-  NODE=(docker run --rm -i --user "$(id -u):$(id -g)" -e ADONA_API_KEY -e STOP_AFTER -v "$WORK:/w" -w /w node:22-alpine node)
+  NODE=(docker run --rm -i --init --user "$(id -u):$(id -g)" -e ADONA_API_KEY -e STOP_AFTER -v "$WORK:/w" -w /w node:22-alpine node)
 else
   NODE=()
 fi
@@ -100,7 +100,10 @@ py() {
   [ ${#PY[@]} -gt 0 ] || return 127
   if [ "${PY[0]}" = docker ] || [ -z "${T:-}" ]; then "${PY[@]}" "$@"; else timeout "$T" "${PY[@]}" "$@"; fi
 }
-stopped_ok() { "$@"; local s=$?; [ "$s" -eq 124 ] && return 0; return "$s"; }
+# A stream stopped by `timeout` succeeded: GNU timeout answers 124, busybox's (the
+# node:22-alpine image) 143. `--init` above gives each container a real PID 1, without
+# which a program run as PID 1 ignores SIGTERM and the stop never comes.
+stopped_ok() { "$@"; local s=$?; [ "$s" -eq 124 ] || [ "$s" -eq 143 ] && return 0; return "$s"; }
 py_stream() { T="$STREAM_SECONDS" stopped_ok py python/stream.py; }
 # A Node script that runs until stopped: `timeout` around it, 124 is success.
 node_stream() {
