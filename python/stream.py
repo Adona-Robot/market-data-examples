@@ -20,7 +20,7 @@ import urllib.error
 import urllib.request
 
 from websockets.asyncio.client import connect
-from websockets.exceptions import ConnectionClosed
+from websockets.exceptions import ConnectionClosed, InvalidStatus
 
 API = "https://api.adona-robot.com"
 STREAM = "wss://api.adona-robot.com/v1/stream"
@@ -45,7 +45,11 @@ async def stream(channels, seconds=None):
     # Anywhere the token is (a browser too): a single-use ticket.
     ticket = post("/v1/ws-ticket", bearer=token)["ticket"]
 
-    async with connect(STREAM, subprotocols=["adona.data.v1", f"ticket.{ticket}"]) as ws:
+    try:
+        ws = await connect(STREAM, subprotocols=["adona.data.v1", f"ticket.{ticket}"])
+    except InvalidStatus as refused:  # the upgrade itself was refused
+        sys.exit(f"refused: {refused.response.status_code}")
+    async with ws:
         await ws.send(json.dumps({"type": "subscribe", "request_id": "sub", "payload": {"channels": channels}}))
         loop = asyncio.get_running_loop()
         deadline = loop.time() + seconds if seconds else None

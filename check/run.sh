@@ -8,8 +8,9 @@
 # present; otherwise, if Docker is available, those examples run in a throwaway
 # container (python:3.12-slim, node:22-alpine) that is removed afterwards.
 #
-# Cost on the account: about ten slices of 1000 bars, a handful of tokens and two
-# stream connections of 20 seconds each. Every example's output goes to a
+# Cost on the account: about a dozen slices of 1000 bars (each stream's snapshot
+# is metered too), a handful of tokens and two stream connections of 20 seconds.
+# Weekends are fine: every check reads bars that exist while the market is closed. Every example's output goes to a
 # temporary directory, filtered so the key can never appear, and only the verdict
 # is printed. KEEP=1 keeps that directory and prints its path.
 set -uo pipefail
@@ -22,24 +23,29 @@ cp -r "$ROOT/curl" "$ROOT/python" "$ROOT/javascript" "$WORK/"
 cd "$WORK" || exit 1
 
 STREAM_SECONDS=20
-YESTERDAY="$(date -u -d 'yesterday' +%Y-%m-%d 2>/dev/null || date -u -v-1d +%Y-%m-%d)"
+# Three days back: never a weekend's empty day only, and inside a trial's 7 days.
+SINCE="$(date -u -d '3 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-3d +%Y-%m-%d)"
 FAILED=0
 
-# Never let the key reach a file or the screen, whatever an example prints.
-redact() { sed "s|${ADONA_API_KEY//|/\\|}|<redacted>|g"; }
+# Never let the key reach a file or the screen, whatever an example prints. Read
+# from the environment, not passed as an argument: `ps` shows arguments.
+redact() {
+  awk 'BEGIN { k = ENVIRON["ADONA_API_KEY"] }
+       { while (k != "" && (i = index($0, k)) > 0) $0 = substr($0, 1, i - 1) "<redacted>" substr($0, i + length(k)); print }'
+}
 
 # --- the runners: local when possible, a throwaway container otherwise -------------
 if command -v python3 >/dev/null && python3 -c 'import sys, websockets; sys.exit(sys.version_info < (3, 9))' 2>/dev/null; then
   PY=(python3)
-elif command -v docker >/dev/null; then
+elif command -v docker >/dev/null && docker info >/dev/null 2>&1; then
   PY=(docker run --rm -i --user "$(id -u):$(id -g)" -e HOME=/tmp -e ADONA_API_KEY -v "$WORK:/w" -w /w python:3.12-slim
-      sh -c 'pip install -q --user -r python/requirements.txt >/dev/null 2>&1 && python "$@"' python)
+      sh -c 'pip install -q --user -r python/requirements.txt >/dev/null && python "$@"' python)
 else
   PY=()
 fi
 if command -v node >/dev/null && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 22 ]; then
   NODE=(node)
-elif command -v docker >/dev/null; then
+elif command -v docker >/dev/null && docker info >/dev/null 2>&1; then
   NODE=(docker run --rm -i --user "$(id -u):$(id -g)" -e ADONA_API_KEY -e STOP_AFTER -v "$WORK:/w" -w /w node:22-alpine node)
 else
   NODE=()
@@ -82,12 +88,12 @@ refused() {
 mcp_candles() {
   curl -s https://api.adona-robot.com/mcp \
     -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
-    -H "Authorization: Bearer $ADONA_API_KEY" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$ADONA_API_KEY") \
     -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_candles","arguments":{"symbol":"EURUSD","timeframe":"M1","limit":5}}}'
 }
 
-skip_py=(--skip "no Python 3.9+ with websockets, and no Docker")
-skip_node=(--skip "no Node 22+, and no Docker")
+skip_py=(--skip "no Python 3.9+ with websockets, and no usable Docker")
+skip_node=(--skip "no Node 22+, and no usable Docker")
 py() { if [ ${#PY[@]} -gt 0 ]; then "${PY[@]}" "$@"; else return 127; fi; }
 nd() { if [ ${#NODE[@]} -gt 0 ]; then "${NODE[@]}" "$@"; else return 127; fi; }
 
@@ -97,11 +103,12 @@ echo "adona-robot examples, against production, $(date -u +%Y-%m-%dT%H:%MZ)"
 check "curl/mcp.sh" '"total_chf_per_month_excluding_vat"' bash curl/mcp.sh
 
 # With the key.
-check "curl/history.sh" '"candles":\[\{"time"' bash curl/history.sh EURUSD S1 1000
+# M1, not S1: an S1 page covers one day, so it is empty a day after the weekend's close.
+check "curl/history.sh" '"candles":\[\{"time"' bash curl/history.sh EURUSD M1 1000
 check "curl/stream-ticket.sh" '"ticket":"' bash curl/stream-ticket.sh
 check "mcp get_candles" '"isError":false' mcp_candles
 if [ ${#PY[@]} -gt 0 ]; then
-  check "python/history.py" '^[1-9][0-9]* bars written' py python/history.py EURUSD M1 "$YESTERDAY"
+  check "python/history.py" '^[1-9][0-9]* bars written' py python/history.py EURUSD M1 "$SINCE"
   check "python/stream.py" 'candle.snapshot candle:EURUSD:M1 [1-9]' py python/stream.py --seconds "$STREAM_SECONDS"
 else
   check "python/history.py" '' "${skip_py[@]}"

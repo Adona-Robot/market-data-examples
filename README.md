@@ -14,7 +14,7 @@ month's invoice, on top of the plan.
 and, machine-readable, in [spec.json](https://adona-robot.com/spec.json) and
 [symbols.json](https://adona-robot.com/symbols.json).*
 
-| Plan | CHF a month, before VAT | Simultaneous connections | Slices of 1000 bars a month |
+| Plan | CHF a month, before VAT | Sized for (simultaneous connections) | Slices of 1000 bars a month |
 |---|---|---|---|
 | Trial, 7 days, free | 0 | 3 | 2 500 a day |
 | Starter | 500 | 30 | 750 000 |
@@ -23,7 +23,8 @@ and, machine-readable, in [spec.json](https://adona-robot.com/spec.json) and
 | Enterprise | 5 000 | 1 000 | 25 000 000 |
 
 The trial carries EURUSD and XAUUSD with 7 days of history; every paid plan carries all 51
-symbols. Above Enterprise: sales@adona-robot.com.
+symbols. A paid plan never refuses a connection: the month's reading sets the next invoice's
+plan. Above Enterprise: sales@adona-robot.com.
 
 ## 1. Get a key
 
@@ -45,7 +46,8 @@ The [quickstart](https://adona-robot.com/en/quickstart) walks through the same s
   **twelve-hour token** per end user of yours (`end_user_id`).
 - **History**: `GET /v1/candles?symbol=EURUSD&timeframe=S1`, timeframes `S1`, `M1`, `M5`, `M15`,
   `H1`, `H4`, `D1`, up to 5000 bars a page, oldest first, prices as strings. `next_before` is the
-  cursor to the page before (null when there is nothing older).
+  cursor to the page before (null when there is nothing older). On `S1` a page covers one day,
+  so an empty page with a cursor is an empty day (a weekend): continue with the cursor.
 - **Live**: `POST /v1/ws-ticket` with the token gives a single-use ticket. Open
   `wss://api.adona-robot.com/v1/stream` offering two subprotocols, `adona.data.v1` and
   `ticket.<ticket>` (never in the URL), then send a `subscribe` frame with channels such as
@@ -100,7 +102,8 @@ The key, when you want `get_candles`, travels in the `Authorization: Bearer` hea
 call. Keep it in an environment variable, not in a file you commit.
 
 **Claude Code**: put [`mcp/claude-code.mcp.json`](mcp/claude-code.mcp.json) in your project as
-`.mcp.json` (it reads `${ADONA_API_KEY}` from your environment), or add it from the command line:
+`.mcp.json` (it reads `ADONA_API_KEY` from your environment; unset, the keyless tools still
+work), or add it from the command line:
 
 ```sh
 claude mcp add --transport http adona-robot https://api.adona-robot.com/mcp \
@@ -111,8 +114,11 @@ claude mcp add --transport http adona-robot https://api.adona-robot.com/mcp \
 `~/.cursor/mcp.json` (global); it reads `${env:ADONA_API_KEY}`.
 
 **Claude Desktop and claude.ai**: Customize, then Connectors, then Add custom connector, with
-the URL `https://api.adona-robot.com/mcp`. The three keyless tools work as is; for
-`get_candles`, add `Authorization` with the value `Bearer YOUR_API_KEY` under Request headers.
+the URL `https://api.adona-robot.com/mcp` and the authentication "No sign-in" (on Team and
+Enterprise, an owner adds it under Organization settings, then Connectors). The three keyless
+tools work as is. For `get_candles`, add the request header `Authorization` with the value
+`Bearer YOUR_API_KEY`, where your account offers request headers (a beta, not yet open to
+every account).
 
 Then ask, for example: "What would 40 simultaneous users cost on Adona Robot?"
 

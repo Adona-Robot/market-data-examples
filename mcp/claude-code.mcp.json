@@ -4,7 +4,7 @@
       "type": "http",
       "url": "https://api.adona-robot.com/mcp",
       "headers": {
-        "Authorization": "Bearer ${ADONA_API_KEY}"
+        "Authorization": "Bearer ${ADONA_API_KEY:-}"
       }
     }
   }

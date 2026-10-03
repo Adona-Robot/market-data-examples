@@ -7,7 +7,10 @@
 # The key stays on your server: it is exchanged at POST /v1/tokens for a
 # twelve-hour token, and every other call carries that token. Prices are strings,
 # exactly as served. A page holds up to 5000 bars, oldest first; `next_before`
-# is the cursor to the page before it (null when there is nothing older).
+# is the cursor to the page before it (null when there is nothing older). On S1 a
+# page covers one day, so it is empty on a weekend: use M1 there, or the cursor.
+# (The key is passed as an argument here for clarity; on a shared machine, other
+# users can see a process's arguments.)
 set -euo pipefail
 
 API="https://api.adona-robot.com"
