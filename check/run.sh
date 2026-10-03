@@ -119,8 +119,9 @@ echo "adona-robot examples, against production, $(date -u +%Y-%m-%dT%H:%MZ)"
 check "curl/mcp.sh" '"total_chf_per_month_excluding_vat"' bash curl/mcp.sh
 
 # With the key.
-# M1, not S1: an S1 page covers one day, so it is empty a day after the weekend's close.
-check "curl/history.sh" '"candles":\[\{"time"' bash curl/history.sh EURUSD M1 1000
+# Its defaults, EURUSD M1 1000, as the Python and JavaScript examples (an S1 page would be
+# empty a day after the weekend's close).
+check "curl/history.sh" '"candles":\[\{"time"' bash curl/history.sh
 check "curl/stream-ticket.sh" '"ticket":"' bash curl/stream-ticket.sh
 check "mcp get_candles" '"isError":false' mcp_candles
 if [ ${#PY[@]} -gt 0 ]; then

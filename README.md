@@ -70,7 +70,7 @@ The Python and JavaScript history examples and the Python stream are the code of
 The Python examples need two packages, once: `pip install requests websockets`.
 
 ```sh
-./curl/history.sh EURUSD S1 1000
+./curl/history.sh                   # the latest 1000 EURUSD one-minute bars
 python python/history.py            # the latest 1000 EURUSD one-minute bars
 python python/stream.py             # quotes and one-minute bars, until Ctrl-C
 node javascript/history.mjs
