@@ -4,7 +4,7 @@
 #   export ADONA_API_KEY=...      # a live key; it is never printed
 #   ./check/run.sh                # from the repository root
 #
-# Needs bash and curl. Python 3.9+ with `websockets` and Node 22+ are used when
+# Needs bash and curl. Python 3.9+ with `requests` and `websockets` and Node 22+ are used when
 # present; otherwise, if Docker is available, those examples run in a throwaway
 # container (python:3.12-slim, node:22-alpine) that is removed afterwards.
 #
@@ -23,8 +23,6 @@ cp -r "$ROOT/curl" "$ROOT/python" "$ROOT/javascript" "$WORK/"
 cd "$WORK" || exit 1
 
 STREAM_SECONDS=20
-# Three days back: never a weekend's empty day only, and inside a trial's 7 days.
-SINCE="$(date -u -d '3 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-3d +%Y-%m-%d)"
 FAILED=0
 
 # Never let the key reach a file or the screen, whatever an example prints. Read
@@ -35,7 +33,7 @@ redact() {
 }
 
 # --- the runners: local when possible, a throwaway container otherwise -------------
-if command -v python3 >/dev/null && python3 -c 'import sys, websockets; sys.exit(sys.version_info < (3, 9))' 2>/dev/null; then
+if command -v python3 >/dev/null && python3 -c 'import sys, requests, websockets; sys.exit(sys.version_info < (3, 9))' 2>/dev/null; then
   PY=(python3)
 elif command -v docker >/dev/null && docker info >/dev/null 2>&1; then
   PY=(docker run --rm -i --user "$(id -u):$(id -g)" -e HOME=/tmp -e ADONA_API_KEY -v "$WORK:/w" -w /w python:3.12-slim
@@ -92,7 +90,7 @@ mcp_candles() {
     -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_candles","arguments":{"symbol":"EURUSD","timeframe":"M1","limit":5}}}'
 }
 
-skip_py=(--skip "no Python 3.9+ with websockets, and no usable Docker")
+skip_py=(--skip "no Python 3.9+ with requests and websockets, and no usable Docker")
 skip_node=(--skip "no Node 22+, and no usable Docker")
 py() { if [ ${#PY[@]} -gt 0 ]; then "${PY[@]}" "$@"; else return 127; fi; }
 nd() { if [ ${#NODE[@]} -gt 0 ]; then "${NODE[@]}" "$@"; else return 127; fi; }
@@ -108,7 +106,7 @@ check "curl/history.sh" '"candles":\[\{"time"' bash curl/history.sh EURUSD M1 10
 check "curl/stream-ticket.sh" '"ticket":"' bash curl/stream-ticket.sh
 check "mcp get_candles" '"isError":false' mcp_candles
 if [ ${#PY[@]} -gt 0 ]; then
-  check "python/history.py" '^[1-9][0-9]* bars written' py python/history.py EURUSD M1 "$SINCE"
+  check "python/history.py" '^[1-9][0-9]* bars, ' py python/history.py EURUSD M1 2000
   check "python/stream.py" 'candle.snapshot candle:EURUSD:M1 [1-9]' py python/stream.py --seconds "$STREAM_SECONDS"
 else
   check "python/history.py" '' "${skip_py[@]}"
@@ -124,6 +122,7 @@ fi
 
 # A wrong key is an answer, not a crash.
 refused "curl/history.sh" bash curl/history.sh
+[ ${#PY[@]} -gt 0 ] && refused "python/history.py" py python/history.py
 [ ${#PY[@]} -gt 0 ] && refused "python/stream.py" py python/stream.py --seconds 1
 [ ${#NODE[@]} -gt 0 ] && refused "javascript/history.mjs" nd javascript/history.mjs
 

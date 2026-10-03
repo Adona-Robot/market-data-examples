@@ -61,12 +61,14 @@ The [quickstart](https://adona-robot.com/en/quickstart) walks through the same s
 | | History | Live stream |
 |---|---|---|
 | curl | [`curl/history.sh`](curl/history.sh) | [`curl/stream-ticket.sh`](curl/stream-ticket.sh) (the ticket; a WebSocket client opens the stream) |
-| Python 3.9+ | [`python/history.py`](python/history.py), standard library: every bar back to a date into a CSV, with a local store so closed history is paid for once | [`python/stream.py`](python/stream.py), needs `websockets` (`pip install -r python/requirements.txt`) |
+| Python 3.9+ | [`python/history.py`](python/history.py) | [`python/stream.py`](python/stream.py) |
 | JavaScript | [`javascript/history.mjs`](javascript/history.mjs), Node 18+, no dependency | [`javascript/stream.mjs`](javascript/stream.mjs), Node 22+ (global `WebSocket`), no dependency |
+
+The Python examples need two packages, once: `pip install requests websockets`.
 
 ```sh
 ./curl/history.sh EURUSD S1 1000
-python python/history.py EURUSD M1 2026-10-01
+python python/history.py EURUSD M1 2000
 python python/stream.py quote:EURUSD candle:EURUSD:M1
 node javascript/history.mjs EURUSD M1 2000
 node javascript/stream.mjs quote:XAUUSD candle:XAUUSD:M1
@@ -75,7 +77,9 @@ node javascript/stream.mjs quote:XAUUSD candle:XAUUSD:M1
 Each one prints the refusal code and stops when the API says no (a wrong key answers
 `INVALID_CUSTOMER_KEY`). For a browser, keep the key on your server and hand the page a token:
 the site publishes a [token server](https://adona-robot.com/examples/token-server.ts) and a
-[browser client](https://adona-robot.com/examples/browser.ts) with reconnection.
+[browser client](https://adona-robot.com/examples/browser.ts) with reconnection, and
+[history.py](https://adona-robot.com/examples/history.py) keeps a local store of the bars it
+has fetched, so closed history is paid for once.
 
 [`check/run.sh`](check/run.sh) runs every example once against production and prints OK or KO
 for each.

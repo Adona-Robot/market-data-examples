@@ -1,6 +1,6 @@
 """The live stream in Python: a token, a ticket, then quotes and closed bars.
 
-Python 3.9+ and one package, `websockets` (pip install -r requirements.txt):
+Python 3.9+, `requests` and `websockets` (pip install requests websockets):
 
     export ADONA_API_KEY=...   # from your account page on adona-robot.com
     python stream.py quote:EURUSD candle:EURUSD:M1
@@ -16,9 +16,8 @@ import asyncio
 import json
 import os
 import sys
-import urllib.error
-import urllib.request
 
+import requests
 from websockets.asyncio.client import connect
 from websockets.exceptions import ConnectionClosed, InvalidStatus
 
@@ -27,16 +26,11 @@ STREAM = "wss://api.adona-robot.com/v1/stream"
 
 
 def post(path, *, bearer, body=None):
-    data = json.dumps(body).encode() if body is not None else b""
-    request = urllib.request.Request(API + path, data=data, method="POST")
-    request.add_header("Authorization", f"Bearer {bearer}")
-    request.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return json.load(response)
-    except urllib.error.HTTPError as error:
+    response = requests.post(API + path, headers={"Authorization": f"Bearer {bearer}"}, json=body, timeout=30)
+    if not response.ok:
         # The part of `detail` before the first colon is the code to branch on.
-        sys.exit(f"refused: {error.code} {error.read().decode(errors='replace')}")
+        sys.exit(f"refused: {response.status_code} {response.text}")
+    return response.json()
 
 
 async def stream(channels, seconds=None):
