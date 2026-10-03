@@ -1,4 +1,4 @@
-# The MCP server answers plain JSON-RPC over HTTP; the offer, the symbols and a price need no key.
+# The MCP server answers plain JSON-RPC over HTTP; the offer, the symbols and the price of a month need no key.
 MCP=https://api.adona-robot.com/mcp
 
 curl -s $MCP -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \

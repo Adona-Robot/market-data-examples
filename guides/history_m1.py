@@ -21,18 +21,24 @@ def get(path, bearer, **kwargs):
 # your server exchanges the key for a token
 token = get("/v1/tokens", os.environ["ADONA_API_KEY"], method="POST", json={"end_user_id": "u-42"})["access_token"]
 
-# pages of up to 5000 bars, newest first; next_before is the page before
-since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
-bars, before = [], None
+# pages of up to 5000 bars, newest first; next_before is the page before.
+# Every bar served is billed, so each page asks only for the minutes it can still need.
+start = datetime.now(timezone.utc) - timedelta(days=days)
+since = start.strftime("%Y-%m-%dT%H:%M:%SZ")
+bars, before, until = [], None, datetime.now(timezone.utc)
 while True:
-    params = {"symbol": symbol, "timeframe": "M1", "limit": 5000}
+    minutes = int((until - start).total_seconds() // 60) + 1
+    params = {"symbol": symbol, "timeframe": "M1", "limit": max(1, min(5000, minutes))}
     if before:
         params["before"] = before
     page = get("/v1/candles", token, params=params)
+    if before is None and page["candles"]:
+        page["candles"].pop()  # the newest bar is still forming: not history yet
     bars = page["candles"] + bars
     before = page["next_before"]
     if before is None or before <= since:  # nothing older, or far enough back
         break
+    until = datetime.fromisoformat(before.replace("Z", "+00:00"))
 
 bars = [b for b in bars if b["time"] >= since]
 print(len(bars), "bars from", bars[0]["time"] if bars else None, "to", bars[-1]["time"] if bars else None)
