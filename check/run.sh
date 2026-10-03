@@ -19,7 +19,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$(mktemp -d)"
 trap '[ "${KEEP:-0}" = 1 ] && echo "outputs kept in $WORK" || rm -rf "$WORK"' EXIT
-cp -r "$ROOT/curl" "$ROOT/python" "$ROOT/javascript" "$WORK/"
+cp -r "$ROOT/curl" "$ROOT/python" "$ROOT/javascript" "$ROOT/guides" "$WORK/"
 cd "$WORK" || exit 1
 
 STREAM_SECONDS=20
@@ -102,6 +102,15 @@ py() {
 }
 stopped_ok() { "$@"; local s=$?; [ "$s" -eq 124 ] && return 0; return "$s"; }
 py_stream() { T="$STREAM_SECONDS" stopped_ok py python/stream.py; }
+# A Node script that runs until stopped: `timeout` around it, 124 is success.
+node_stream() {
+  [ ${#NODE[@]} -gt 0 ] || return 127
+  if [ "${NODE[0]}" = docker ]; then
+    stopped_ok "${NODE[@]:0:${#NODE[@]}-1}" timeout "$STREAM_SECONDS" node "$@"
+  else
+    stopped_ok timeout "$STREAM_SECONDS" "${NODE[@]}" "$@"
+  fi
+}
 nd() { if [ ${#NODE[@]} -gt 0 ]; then "${NODE[@]}" "$@"; else return 127; fi; }
 
 echo "adona-robot examples, against production, $(date -u +%Y-%m-%dT%H:%MZ)"
@@ -129,11 +138,25 @@ else
   check "javascript/stream.mjs" '' "${skip_node[@]}"
 fi
 
+# The guides' code (adona-robot.com/en/use/...), the same files the site serves.
+check "guides/mcp.sh" '"total_chf_per_month_excluding_vat"' bash guides/mcp.sh
+if [ ${#PY[@]} -gt 0 ]; then
+  check "guides/history_m1.py" '^[1-9][0-9]* bars from 20' py guides/history_m1.py EURUSD 3
+else
+  check "guides/history_m1.py" '' "${skip_py[@]}"
+fi
+if [ ${#NODE[@]} -gt 0 ]; then
+  check "guides/stream.mjs" 'candle.snapshot candle:EURUSD:M1 [1-9]' node_stream guides/stream.mjs
+else
+  check "guides/stream.mjs" '' "${skip_node[@]}"
+fi
+
 # A wrong key is an answer, not a crash.
 refused "curl/history.sh" bash curl/history.sh
 [ ${#PY[@]} -gt 0 ] && refused "python/history.py" py python/history.py
 [ ${#PY[@]} -gt 0 ] && T=10 refused "python/stream.py" py python/stream.py
 [ ${#NODE[@]} -gt 0 ] && refused "javascript/history.mjs" nd javascript/history.mjs
+[ ${#PY[@]} -gt 0 ] && refused "guides/history_m1.py" py guides/history_m1.py
 
 if [ "$FAILED" -eq 0 ]; then echo "ALL OK"; else echo "SOME KO"; fi
 exit "$FAILED"

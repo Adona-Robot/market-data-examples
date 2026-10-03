@@ -84,6 +84,12 @@ the site publishes a [token server](https://adona-robot.com/examples/token-serve
 [history.py](https://adona-robot.com/examples/history.py) keeps a local store of the bars it
 has fetched, so closed history is paid for once.
 
+The [`guides/`](guides) folder holds the code of the guides on the site, the same files:
+[one-minute history, paged back](https://adona-robot.com/en/use/forex-1-minute-history-api)
+(`guides/history_m1.py`), [the live stream](https://adona-robot.com/en/use/forex-websocket-price-stream)
+(`guides/stream.mjs`) and [the MCP server for an agent](https://adona-robot.com/en/use/market-data-mcp-server-ai-agent)
+(`guides/mcp.sh`).
+
 [`check/run.sh`](check/run.sh) runs every example once against production and prints OK or KO
 for each.
 
