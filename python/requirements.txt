@@ -1,2 +1,2 @@
 requests>=2.28
-websockets>=14
+websockets>=13

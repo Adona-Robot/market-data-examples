@@ -10,8 +10,11 @@ async function call(path, bearer, init = {}) {
   return response.json();
 }
 
+const key = process.env.ADONA_API_KEY;
+if (!key) throw new Error("set ADONA_API_KEY to your API key");
+
 // your server exchanges the key for a token
-const { access_token: token } = await call("/v1/tokens", process.env.ADONA_API_KEY, {
+const { access_token: token, expires_in } = await call("/v1/tokens", key, {
   method: "POST",
   body: JSON.stringify({ end_user_id: "u-42" }),
 });
@@ -19,3 +22,4 @@ const { access_token: token } = await call("/v1/tokens", process.env.ADONA_API_K
 // the token reads candles
 const page = await call("/v1/candles?symbol=EURUSD&timeframe=M1&limit=1000", token);
 console.log(page.candles.length, "bars, newest:", page.candles.at(-1));
+console.log(`token ok, expires in ${expires_in} s`);

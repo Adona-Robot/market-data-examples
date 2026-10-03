@@ -1,4 +1,4 @@
-# pip install requests websockets
+# pip install requests "websockets>=13"
 import asyncio
 import json
 import os
