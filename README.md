@@ -58,24 +58,27 @@ The [quickstart](https://adona-robot.com/en/quickstart) walks through the same s
 
 ## 3. Examples
 
+The Python and JavaScript history examples and the Python stream are the code of the
+[quickstart](https://adona-robot.com/en/quickstart)'s tabs, unchanged.
+
 | | History | Live stream |
 |---|---|---|
 | curl | [`curl/history.sh`](curl/history.sh) | [`curl/stream-ticket.sh`](curl/stream-ticket.sh) (the ticket; a WebSocket client opens the stream) |
 | Python 3.9+ | [`python/history.py`](python/history.py) | [`python/stream.py`](python/stream.py) |
-| JavaScript | [`javascript/history.mjs`](javascript/history.mjs), Node 18+, no dependency | [`javascript/stream.mjs`](javascript/stream.mjs), Node 22+ (global `WebSocket`), no dependency |
+| JavaScript | [`javascript/history.mjs`](javascript/history.mjs), Node 18+ | [`javascript/stream.mjs`](javascript/stream.mjs), Node 22+ (global `WebSocket`); the same frames as the quickstart's browser snippet |
 
 The Python examples need two packages, once: `pip install requests websockets`.
 
 ```sh
 ./curl/history.sh EURUSD S1 1000
-python python/history.py EURUSD M1 2000
-python python/stream.py quote:EURUSD candle:EURUSD:M1
-node javascript/history.mjs EURUSD M1 2000
+python python/history.py            # the latest 1000 EURUSD one-minute bars
+python python/stream.py             # quotes and one-minute bars, until Ctrl-C
+node javascript/history.mjs
 node javascript/stream.mjs quote:XAUUSD candle:XAUUSD:M1
 ```
 
-Each one prints the refusal code and stops when the API says no (a wrong key answers
-`INVALID_CUSTOMER_KEY`). For a browser, keep the key on your server and hand the page a token:
+Each one prints `refused:` with the status and the API's answer, and stops, when the API says
+no (a wrong key answers `INVALID_CUSTOMER_KEY`). For a browser, keep the key on your server and hand the page a token:
 the site publishes a [token server](https://adona-robot.com/examples/token-server.ts) and a
 [browser client](https://adona-robot.com/examples/browser.ts) with reconnection, and
 [history.py](https://adona-robot.com/examples/history.py) keeps a local store of the bars it

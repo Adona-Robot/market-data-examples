@@ -35,9 +35,11 @@ redact() {
 # --- the runners: local when possible, a throwaway container otherwise -------------
 if command -v python3 >/dev/null && python3 -c 'import sys, requests, websockets; sys.exit(sys.version_info < (3, 9))' 2>/dev/null; then
   PY=(python3)
+  export PYTHONUNBUFFERED=1  # a stream stopped by `timeout` must have printed what it got
 elif command -v docker >/dev/null && docker info >/dev/null 2>&1; then
-  PY=(docker run --rm -i --user "$(id -u):$(id -g)" -e HOME=/tmp -e ADONA_API_KEY -v "$WORK:/w" -w /w python:3.12-slim
-      sh -c 'pip install -q --user -r python/requirements.txt >/dev/null && python "$@"' python)
+  PY=(docker run --rm -i --user "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONUNBUFFERED=1 -e T -e ADONA_API_KEY
+      -v "$WORK:/w" -w /w python:3.12-slim
+      sh -c 'pip install -q --user -r python/requirements.txt >/dev/null && exec ${T:+timeout $T} python "$@"' python)
 else
   PY=()
 fi
@@ -92,7 +94,14 @@ mcp_candles() {
 
 skip_py=(--skip "no Python 3.9+ with requests and websockets, and no usable Docker")
 skip_node=(--skip "no Node 22+, and no usable Docker")
-py() { if [ ${#PY[@]} -gt 0 ]; then "${PY[@]}" "$@"; else return 127; fi; }
+# py runs Python; with T=N in its environment, for N seconds at most (the quickstart's
+# stream.py runs until stopped, so `timeout`'s 124 is its success).
+py() {
+  [ ${#PY[@]} -gt 0 ] || return 127
+  if [ "${PY[0]}" = docker ] || [ -z "${T:-}" ]; then "${PY[@]}" "$@"; else timeout "$T" "${PY[@]}" "$@"; fi
+}
+stopped_ok() { "$@"; local s=$?; [ "$s" -eq 124 ] && return 0; return "$s"; }
+py_stream() { T="$STREAM_SECONDS" stopped_ok py python/stream.py; }
 nd() { if [ ${#NODE[@]} -gt 0 ]; then "${NODE[@]}" "$@"; else return 127; fi; }
 
 echo "adona-robot examples, against production, $(date -u +%Y-%m-%dT%H:%MZ)"
@@ -106,14 +115,14 @@ check "curl/history.sh" '"candles":\[\{"time"' bash curl/history.sh EURUSD M1 10
 check "curl/stream-ticket.sh" '"ticket":"' bash curl/stream-ticket.sh
 check "mcp get_candles" '"isError":false' mcp_candles
 if [ ${#PY[@]} -gt 0 ]; then
-  check "python/history.py" '^[1-9][0-9]* bars, ' py python/history.py EURUSD M1 2000
-  check "python/stream.py" 'candle.snapshot candle:EURUSD:M1 [1-9]' py python/stream.py --seconds "$STREAM_SECONDS"
+  check "python/history.py" '^[1-9][0-9]* bars, newest:' py python/history.py
+  check "python/stream.py" "candle\.snapshot.*'channel': 'candle:EURUSD:M1'.*'candles': \[\{" py_stream
 else
   check "python/history.py" '' "${skip_py[@]}"
   check "python/stream.py" '' "${skip_py[@]}"
 fi
 if [ ${#NODE[@]} -gt 0 ]; then
-  check "javascript/history.mjs" '^[1-9][0-9]* bars, ' nd javascript/history.mjs EURUSD M1 2000
+  check "javascript/history.mjs" '^[1-9][0-9]* bars, newest:' nd javascript/history.mjs
   check "javascript/stream.mjs" 'candle.snapshot candle:EURUSD:M1 [1-9]' env STOP_AFTER="$STREAM_SECONDS" "${NODE[@]}" javascript/stream.mjs
 else
   check "javascript/history.mjs" '' "${skip_node[@]}"
@@ -123,7 +132,7 @@ fi
 # A wrong key is an answer, not a crash.
 refused "curl/history.sh" bash curl/history.sh
 [ ${#PY[@]} -gt 0 ] && refused "python/history.py" py python/history.py
-[ ${#PY[@]} -gt 0 ] && refused "python/stream.py" py python/stream.py --seconds 1
+[ ${#PY[@]} -gt 0 ] && T=10 refused "python/stream.py" py python/stream.py
 [ ${#NODE[@]} -gt 0 ] && refused "javascript/history.mjs" nd javascript/history.mjs
 
 if [ "$FAILED" -eq 0 ]; then echo "ALL OK"; else echo "SOME KO"; fi
