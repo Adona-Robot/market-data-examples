@@ -112,8 +112,11 @@ The MCP server is at `https://api.adona-robot.com/mcp` (streamable HTTP, statele
 | `quote_price_for` | The plan and the CHF total, before VAT, for a month of usage | No |
 | `get_candles` | Candle history for one symbol, one page, oldest first | Yes, billed like `GET /v1/candles` |
 
-The key, when you want `get_candles`, travels in the `Authorization: Bearer` header on every
-call. Keep it in an environment variable, not in a file you commit.
+The key, when you want `get_candles`, travels on every call in the `Authorization: Bearer`
+header, or in an `X-API-Key` header for a client or gateway that keeps `Authorization` for
+itself (`X-API-Key: YOUR_API_KEY`, no `Bearer`). Send one key: two different keys in the two
+headers, or two different `X-API-Key` values, are refused as `CONFLICTING_API_KEYS`. Keep the
+key in an environment variable, not in a file you commit.
 
 **Claude Code**: put [`mcp/claude-code.mcp.json`](mcp/claude-code.mcp.json) in your project as
 `.mcp.json` (it reads `ADONA_API_KEY` from your environment; unset, the keyless tools still
@@ -131,8 +134,8 @@ claude mcp add --transport http adona-robot https://api.adona-robot.com/mcp \
 the URL `https://api.adona-robot.com/mcp` and the authentication "No sign-in" (on Team and
 Enterprise, an owner adds it under Organization settings, then Connectors). The three keyless
 tools work as is. For `get_candles`, add the request header `Authorization` with the value
-`Bearer YOUR_API_KEY`, where your account offers request headers (a beta, not yet open to
-every account).
+`Bearer YOUR_API_KEY`, or `X-API-Key` with the value `YOUR_API_KEY`, where your account offers
+request headers (a beta, not yet open to every account).
 
 Then ask, for example: "What would 40 simultaneous users cost on Adona Robot?"
 
