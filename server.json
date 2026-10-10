@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.adona-robot/market-data",
   "title": "Adona Robot market data",
-  "description": "FX and metals market data: plans, 51 symbols, price quotes, and candles with an API key.",
-  "version": "1.2.0",
+  "description": "Forex and gold data API: real-time XAUUSD and FX, 1s candles, redistribution allowed, from CHF 500.",
+  "version": "1.2.1",
   "websiteUrl": "https://adona-robot.com/en",
   "repository": {
     "url": "https://github.com/Adona-Robot/market-data-examples",
