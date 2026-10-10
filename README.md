@@ -6,7 +6,7 @@ configuration to connect an AI agent to its MCP server.
 Adona Robot sells **one-second OHLC candles and a live bid/ask quote stream for 46 FX pairs and
 5 spot metals**, over REST and WebSocket. It is priced by capacity: the month's peak of
 simultaneous connections and slices of 1000 bars, not per seat. **Redistribution is allowed on
-every plan**: show the data in your product, relay it to your own clients, keep what you receive.
+every paid plan**: show the data in your product, relay it to your own clients, keep what you receive.
 A symbol you follow live for more than 80% of its open hours in a month adds CHF 150 to that
 month's invoice, on top of the plan.
 
@@ -93,6 +93,21 @@ The [`guides/`](guides) folder holds the code of the guides on the site, the sam
 
 [`check/run.sh`](check/run.sh) runs every example once against production and prints OK or KO
 for each.
+
+### Notebooks and the Python client
+
+Three notebooks open in Google Colab, with the API key taken from Colab's secrets
+(`ADONA_API_KEY`) or typed, never written into the notebook:
+
+| Notebook | What it does |
+|---|---|
+| [`notebooks/eurusd_1s.ipynb`](notebooks/eurusd_1s.ipynb) [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adona-Robot/market-data-examples/blob/main/notebooks/eurusd_1s.ipynb) | The last hour of EURUSD at one second, as a pandas DataFrame, and its price updates per minute |
+| [`notebooks/gold_live.ipynb`](notebooks/gold_live.ipynb) [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adona-Robot/market-data-examples/blob/main/notebooks/gold_live.ipynb) | Thirty seconds of XAUUSD's live bid and ask, and its one-second bars as they close |
+| [`notebooks/mcp.ipynb`](notebooks/mcp.ipynb) [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adona-Robot/market-data-examples/blob/main/notebooks/mcp.ipynb) | The MCP server called by hand: the offer and a month's price without a key, candles with one |
+
+The first two use [`adona-market-data`](https://github.com/Adona-Robot/market-data-python), the
+Python client (`pip install "adona-market-data[all]"`): candles paged back into pandas, the live
+stream with reconnection, and refusals with their code.
 
 ## 4. Symbols
 
