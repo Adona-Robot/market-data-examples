@@ -10,7 +10,7 @@ every paid plan**: show the data in your product, relay it to your own clients, 
 A symbol you follow live for more than 80% of its open hours in a month adds CHF 150 to that
 month's invoice, on top of the plan.
 
-*Facts as of 2026-10-03. The current ones are always on [adona-robot.com](https://adona-robot.com/en)
+*Facts as of 2026-11-07. The current ones are always on [adona-robot.com](https://adona-robot.com/en)
 and, machine-readable, in [spec.json](https://adona-robot.com/spec.json) and
 [symbols.json](https://adona-robot.com/symbols.json).*
 
@@ -25,6 +25,10 @@ and, machine-readable, in [spec.json](https://adona-robot.com/spec.json) and
 The trial carries EURUSD and XAUUSD with 7 days of history; every paid plan carries all 51
 symbols. A paid plan never refuses a connection: the month's reading sets the next invoice's
 plan. Above Enterprise: sales@adona-robot.com.
+
+Running a prop firm? Its own API, `/v1/prop`, is described at
+[adona-robot.com/en/prop-firms](https://adona-robot.com/en/prop-firms), and its reference trading
+front is in [prop-firm-examples](https://github.com/Adona-Robot/prop-firm-examples).
 
 ## 1. Get a key
 
